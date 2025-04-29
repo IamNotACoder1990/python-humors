@@ -1,0 +1,185 @@
+!Customer Secondary Router - NEIGHBOR 4
+!Begin
+service password-encryption
+no service finger
+no service pad
+no service tcp-small-servers
+no service udp-small-servers
+no service call-home
+no ip finger
+no ip bootp server
+no ip bootp relay
+no call-home
+no ip domain-lookup
+!
+lldp run
+cdp run
+!
+hostname c1006x-ce-hchb-60009-1
+ip domain-name example.hq.doc.gov
+!
+interface Loopback0
+ description int.peering
+ ip address 10.1.1.4 255.255.255.255
+!
+interface Loopback1
+ description int.mgmt
+ ip address 10.1.2.4 255.255.255.255
+!
+! Enable Unicast Reverse Path Forwarding (uRPF) Loose mode
+interface GigabitEthernet0/0
+ desc int.wan
+ ip address 10.111.100.1 255.255.254.0
+ ip verify unicast source reachable-via any allow-default
+ no shut
+!
+interface GigabitEthernet0/1
+ desc int.p2p
+ ip address 10.111.200.2 255.255.255.248
+ no shut
+!
+interface GigabitEthernet0/3
+ description int.downlink1
+ ip address 10.111.150.3 255.255.255.248
+ standby version 2
+ standby 150 ip 10.111.150.1
+ standby 150 priority 110
+ standby 150 preempt
+ standby 150 authentication md5 <hsrp_pre-shared-key>
+ no shutdown
+!
+interface GigabitEthernet0/4
+ description int.downlink2
+ ip address 10.111.151.3 255.255.255.248
+ standby version 2
+ standby 151 ip 10.111.151.1
+ standby 151 priority 110
+ standby 151 preempt
+ standby 151 authentication md5 <hsrp_pre-shared-key>
+ no shutdown
+!
+username <username> privilege 15 secret <password>
+!
+login block-for 180 attempts 5 within 120
+login delay 3
+login on-failure log every 3
+login on-success log
+!
+aaa new-model
+aaa authentication login default group <authentication_method>
+aaa authentication login fallback local
+aaa authorization exec default local
+!
+crypto key generate rsa general-keys modulus 2048
+ip ssh version 2
+ip ssh logging events
+ip ssh source-interface Loopback1
+!
+route-map PREPEND_AS_64520 permit 10
+ match ip address prefix-list AS_64621_ALLOWED_ROUTES_outbound
+ set as-path prepend 64621 64621 64621
+!
+ip prefix-list AS_64621_ALLOWED_ROUTES_outbound seq 10 permit 0.0.0.0/0
+!
+ip access-list extended PEER_ACL
+ permit ip <neighbor_IP_2> <neighbor_IP_3_net> <neighbor_IP_3_subnet_wildcard>
+ permit ip <neighbor_IP_2> <neighbor_IP_4_net> <neighbor_IP_4_subnet_wildcard> 
+ permit ip <neighbor_IP_2> <neighbor_IP_5_net> <neighbor_IP_5_subnet_wildcard>
+ permit ip <neighbor_IP_2> <neighbor_IP_5_net> <neighbor_IP_6_subnet_wildcard>  
+!
+crypto isakmp policy 1
+ encr aes 256
+ authentication pre-share
+ group 16  // Use Diffie-Hellman Group 16 for AES-GCM
+!
+crypto isakmp key <authentication_key_3> address <neighbor_IP_3>
+crypto isakmp key <authentication_key_3> address <neighbor_IP_4>
+crypto isakmp key <authentication_key_3> address <neighbor_IP_5>
+crypto isakmp key <authentication_key_3> address <neighbor_IP_6>
+!
+crypto ipsec transform-set ESP-AES-GCM esp-aes-gcm 256 // Use AES-GCM with 256-bit key length
+ mode tunnel
+!
+crypto map BIS_VPN_PEERS 10 ipsec-isakmp
+ set peer <neighbor_IP_3>
+ set peer <neighbor_IP_4>
+ set peer <neighbor_IP_5>
+ set peer <neighbor_IP_6>
+ set transform-set ESP-AES-GCM
+ match address PEER_ACL
+!
+interface GigabitEthernet0/1
+ crypto map BIS_VPN_PEERS
+!
+!ONLY CONFIGURE THIS IF YOU DO NOT HAVE OR USE A DEFAULT ROUTE. 
+ip route 0.0.0.0 0.0.0.0 null0
+!
+router bgp 64520
+ no synchronization 
+ bgp router-id 10.1.1.2
+ bgp log-neighbor-changes
+ no auto-summary
+!
+ network 10.111.100.0 mask 255.255.254.0
+ network 10.111.200.0 mask 255.255.255.248
+ network 10.111.150.0 mask 255.255.255.248
+ network 10.111.151.0 mask 255.255.255.248
+ network 10.1.1.2 mask 255.255.255.255
+ network 10.1.2.2 mask 255.255.255.255
+!
+ neighbor <neighbor_IP_1> remote-as 64520
+ neighbor <neighbor_IP_1> password <authentication_key_1>
+!
+ neighbor <neighbor_IP_verizon> remote-as 64620
+ neighbor <neighbor_IP_verizon> next-hop-self
+ neighbor <neighbor_IP_verizon> password <authentication_key_2>
+ neighbor <neighbor_IP_verizon> route-map PREPEND_ALL_OUT out // Apply route-map to prepend all outbound routes to verizon
+!
+ neighbor <neighbor_IP_3> remote-as 64621
+ neighbor <neighbor_IP_3> default-originate 
+ neighbor <neighbor_IP_3> route-map PREPEND_AS_64520 out  // Apply route-map to advertise a default route only and prepend it
+ neighbor <neighbor_IP_3> password <authentication_key_3>
+ neighbor <neighbor_IP_3> next-hop-self
+!
+ neighbor <neighbor_IP_4> remote-as 64621
+ neighbor <neighbor_IP_4> route-map PREPEND_AS_64520 out // Apply route-map to advertise a default route only and prepend it
+ neighbor <neighbor_IP_4> default-originate
+ neighbor <neighbor_IP_4> password <authentication_key_3>
+ neighbor <neighbor_IP_4> next-hop-self
+!
+ neighbor <neighbor_IP_5> remote-as 64621
+ neighbor <neighbor_IP_5> route-map PREPEND_AS_64520 out // Apply route-map to advertise a default route only and prepend it
+ neighbor <neighbor_IP_5> default-originate
+ neighbor <neighbor_IP_5> password <authentication_key_3>
+ neighbor <neighbor_IP_5> next-hop-self
+!
+ neighbor <neighbor_IP_6> remote-as 64621
+ neighbor <neighbor_IP_6> route-map PREPEND_AS_64520 out // Apply route-map to advertise a default route only and prepend it
+ neighbor <neighbor_IP_6> default-originate
+ neighbor <neighbor_IP_6> password <authentication_key_3>
+ neighbor <neighbor_IP_6> next-hop-self
+!
+exit
+!
+logging source-interface Loopback1
+logging host <syslog_server_IP> 
+logging buffered 50000 informational
+logging trap debugging
+!
+ntp server <NTP_SERVER_IP> prefer
+ntp server <NTP_SECONDARY_SERVER_IP>
+ntp update-calendar
+!
+line console 0
+ login authentication default
+ privelege 15
+!
+line vty 0 4
+ exec-timeout 15 0
+ login authentication default
+ transport input ssh
+!
+line vty 5 15
+ exec-timeout 0 0
+ transport input none
+ transport output none
