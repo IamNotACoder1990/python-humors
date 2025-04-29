@@ -1,0 +1,81 @@
+hostname: c1006x-ce-hchb-60009-1
+domain: example.hq.doc.gov
+loopback0_ip: 10.1.1.4
+loopback1_ip: 10.1.2.4
+gi0_0_ip: 10.111.100.1
+gi0_0_mask: 255.255.254.0
+gi0_1_ip: 10.111.200.2
+gi0_1_mask: 255.255.255.248
+gi0_3_ip: 10.111.150.3
+gi0_3_mask: 255.255.255.248
+hsrp1_ip: 10.111.150.1
+gi0_4_ip: 10.111.151.3
+gi0_4_mask: 255.255.255.248
+hsrp2_ip: 10.111.151.1
+hsrp_key: <hsrp_pre-shared-key>
+username: <username>
+password: <password>
+aaa_group: <authentication_method>
+bgp_id: 10.1.1.2
+ntp1: <NTP_SERVER_IP>
+ntp2: <NTP_SECONDARY_SERVER_IP>
+syslog: <syslog_server_IP>
+ike_key: <authentication_key_3>
+peer_acl:
+  - source: <neighbor_IP_2>
+    destination: <neighbor_IP_3_net>
+    wildcard: <neighbor_IP_3_subnet_wildcard>
+  - source: <neighbor_IP_2>
+    destination: <neighbor_IP_4_net>
+    wildcard: <neighbor_IP_4_subnet_wildcard>
+  - source: <neighbor_IP_2>
+    destination: <neighbor_IP_5_net>
+    wildcard: <neighbor_IP_5_subnet_wildcard>
+  - source: <neighbor_IP_2>
+    destination: <neighbor_IP_5_net>
+    wildcard: <neighbor_IP_6_subnet_wildcard>
+ike_peers:
+  - <neighbor_IP_3>
+  - <neighbor_IP_4>
+  - <neighbor_IP_5>
+  - <neighbor_IP_6>
+networks:
+  - 10.111.100.0 mask 255.255.254.0
+  - 10.111.200.0 mask 255.255.255.248
+  - 10.111.150.0 mask 255.255.255.248
+  - 10.111.151.0 mask 255.255.255.248
+  - 10.1.1.2 mask 255.255.255.255
+  - 10.1.2.2 mask 255.255.255.255
+bgp_neighbors:
+  - ip: <neighbor_IP_1>
+    remote_as: 64520
+    password: <authentication_key_1>
+  - ip: <neighbor_IP_verizon>
+    remote_as: 64620
+    password: <authentication_key_2>
+    route_map: PREPEND_ALL_OUT
+    next_hop_self: true
+  - ip: <neighbor_IP_3>
+    remote_as: 64621
+    default_originate: true
+    password: <authentication_key_3>
+    route_map: PREPEND_AS_64520
+    next_hop_self: true
+  - ip: <neighbor_IP_4>
+    remote_as: 64621
+    default_originate: true
+    password: <authentication_key_3>
+    route_map: PREPEND_AS_64520
+    next_hop_self: true
+  - ip: <neighbor_IP_5>
+    remote_as: 64621
+    default_originate: true
+    password: <authentication_key_3>
+    route_map: PREPEND_AS_64520
+    next_hop_self: true
+  - ip: <neighbor_IP_6>
+    remote_as: 64621
+    default_originate: true
+    password: <authentication_key_3>
+    route_map: PREPEND_AS_64520
+    next_hop_self: true
