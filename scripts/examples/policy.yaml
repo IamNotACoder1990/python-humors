@@ -1,0 +1,16 @@
+- service password-encryption
+- no ip domain-lookup
+- hostname c1006x-ce-hchb-60009-1
+- ip domain-name example.hq.doc.gov
+- ip ssh version 2
+- crypto key generate rsa general-keys modulus 2048
+- ip ssh source-interface Loopback1
+- login block-for 180 attempts 5 within 120
+- aaa new-model
+- ntp server <NTP_SERVER_IP> prefer
+- ntp update-calendar
+- logging buffered 50000 informational
+- line vty 0 4
+- transport input ssh
+- standby 150 priority 110
+- ip verify unicast source reachable-via any allow-default
