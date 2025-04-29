@@ -17,7 +17,7 @@ Here’s a complete breakdown of **external input files** each script relies on 
 | `verify_bgp_neighbors.py` | ✅ Device credentials dictionary (inline or file) | **Inline only**     | Should allow external JSON/YAML creds   |
 
 
-## 📂 Suggested Supporting Files You Should Add
+## 📂 Suggested Supporting Files You Should Add - Be a friend to yourself!
 
 ### 1. `intended.txt`  
 Golden config (e.g., baseline Cisco config)
