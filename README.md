@@ -42,7 +42,7 @@ python-humors/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/python-humors.git
+git clone https://github.com/IAmNotACoder1990/python-humors.git
 cd python-humors
 ```
 
