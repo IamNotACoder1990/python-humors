@@ -1,0 +1,156 @@
+!Customer Secondary Router - NEIGHBOR 4
+!Begin
+service password-encryption
+no service finger
+no service pad
+no service tcp-small-servers
+no service udp-small-servers
+no service call-home
+no ip finger
+no ip bootp server
+no ip bootp relay
+no call-home
+no ip domain-lookup
+
+lldp run
+cdp run
+
+hostname {{ hostname }}
+ip domain-name {{ domain }}
+
+interface Loopback0
+ description int.peering
+ ip address {{ loopback0_ip }} 255.255.255.255
+
+interface Loopback1
+ description int.mgmt
+ ip address {{ loopback1_ip }} 255.255.255.255
+
+interface GigabitEthernet0/0
+ desc int.wan
+ ip address {{ gi0_0_ip }} {{ gi0_0_mask }}
+ ip verify unicast source reachable-via any allow-default
+ no shut
+
+interface GigabitEthernet0/1
+ desc int.p2p
+ ip address {{ gi0_1_ip }} {{ gi0_1_mask }}
+ no shut
+ crypto map BIS_VPN_PEERS
+
+interface GigabitEthernet0/3
+ description int.downlink1
+ ip address {{ gi0_3_ip }} {{ gi0_3_mask }}
+ standby version 2
+ standby 150 ip {{ hsrp1_ip }}
+ standby 150 priority 110
+ standby 150 preempt
+ standby 150 authentication md5 {{ hsrp_key }}
+ no shutdown
+
+interface GigabitEthernet0/4
+ description int.downlink2
+ ip address {{ gi0_4_ip }} {{ gi0_4_mask }}
+ standby version 2
+ standby 151 ip {{ hsrp2_ip }}
+ standby 151 priority 110
+ standby 151 preempt
+ standby 151 authentication md5 {{ hsrp_key }}
+ no shutdown
+
+username {{ username }} privilege 15 secret {{ password }}
+
+login block-for 180 attempts 5 within 120
+login delay 3
+login on-failure log every 3
+login on-success log
+
+aaa new-model
+aaa authentication login default group {{ aaa_group }}
+aaa authentication login fallback local
+aaa authorization exec default local
+
+crypto key generate rsa general-keys modulus 2048
+ip ssh version 2
+ip ssh logging events
+ip ssh source-interface Loopback1
+
+route-map PREPEND_AS_64520 permit 10
+ match ip address prefix-list AS_64621_ALLOWED_ROUTES_outbound
+ set as-path prepend 64621 64621 64621
+
+ip prefix-list AS_64621_ALLOWED_ROUTES_outbound seq 10 permit 0.0.0.0/0
+
+ip access-list extended PEER_ACL
+{% for peer in peer_acl %}
+ permit ip {{ peer.source }} {{ peer.destination }} {{ peer.wildcard }}
+{% endfor %}
+
+crypto isakmp policy 1
+ encr aes 256
+ authentication pre-share
+ group 16
+
+{% for peer in ike_peers %}
+crypto isakmp key {{ ike_key }} address {{ peer }}
+{% endfor %}
+
+crypto ipsec transform-set ESP-AES-GCM esp-aes-gcm 256
+ mode tunnel
+
+crypto map BIS_VPN_PEERS 10 ipsec-isakmp
+{% for peer in ike_peers %}
+ set peer {{ peer }}
+{% endfor %}
+ set transform-set ESP-AES-GCM
+ match address PEER_ACL
+
+ip route 0.0.0.0 0.0.0.0 null0
+
+router bgp 64520
+ bgp router-id {{ bgp_id }}
+ bgp log-neighbor-changes
+ no auto-summary
+
+{% for net in networks %}
+ network {{ net }}
+{% endfor %}
+
+{% for neighbor in bgp_neighbors %}
+ neighbor {{ neighbor.ip }} remote-as {{ neighbor.remote_as }}
+{% if neighbor.password %}
+ neighbor {{ neighbor.ip }} password {{ neighbor.password }}
+{% endif %}
+{% if neighbor.default_originate %}
+ neighbor {{ neighbor.ip }} default-originate
+{% endif %}
+{% if neighbor.next_hop_self %}
+ neighbor {{ neighbor.ip }} next-hop-self
+{% endif %}
+{% if neighbor.route_map %}
+ neighbor {{ neighbor.ip }} route-map {{ neighbor.route_map }} out
+{% endif %}
+{% endfor %}
+
+logging source-interface Loopback1
+logging host {{ syslog }}
+logging buffered 50000 informational
+logging trap debugging
+
+ntp server {{ ntp1 }} prefer
+ntp server {{ ntp2 }}
+ntp update-calendar
+
+line console 0
+ login authentication default
+ privilege 15
+
+line vty 0 4
+ exec-timeout 15 0
+ login authentication default
+ transport input ssh
+
+line vty 5 15
+ exec-timeout 0 0
+ transport input none
+ transport output none
